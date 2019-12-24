@@ -34,13 +34,15 @@ class NLU(object):
         intent_find_words = ["find", "search", "know", "wanna", "want", "is"]
         extract_office_words = ["office", "room", "place"]
 
+        entities = self.extract_entities(doc)
+
         intent = "UNK"
-        if len(root) > 1 or len(xcomp) > 1 or len(poss) > 2 or len(place) > 1:
-            intent = "COMPLEX"
-        elif str(doc[root[0]]).lower() in extract_office_words and len(place) == 1:
-            intent = "COMPLEX"
-        elif len(poss) == 2 and (poss[0] - poss[1])**2 > 1:
-            intent = "COMPLEX"
+        if len(root) > 1 or len(xcomp) > 1 or len(poss) > 2 or len(place) > 1: # too many intents or names or places
+            intent = "UNK"
+        elif str(doc[root[0]]).lower() in extract_office_words and len(place) == 1: # two places
+            intent = "UNK"
+        elif len(poss) == 2 and (poss[0] - poss[1])**2 > 1: # two different names
+            intent = "UNK"
         else:
             temp = []
             for i, t in enumerate(doc):
@@ -61,15 +63,17 @@ class NLU(object):
                         extracts[t.dep_].append(str(t))
                         temp.append(i)
 
-            root_string = str(doc[root[0]]).lower()
+            root_string = str(doc[root[0]])
             if len(xcomp) == 1:
                 xcomp_string = str(doc[xcomp[0]]).lower()
             else:
                 xcomp_string = None
 
-            if root_string in extract_office_words:
+            if root_string.lower() in extract_office_words:
                 intent = "FIND_OFFICE_LOC"
-            elif root_string in intent_find_words or xcomp_string in intent_find_words:
+            elif root_string in entities.get("PERSON", []):
+                intent = "STATE"
+            elif root_string.lower() in intent_find_words or xcomp_string in intent_find_words:
                 found = False
                 for ent_A in extract_office_words:
                     for ent_B in extracts.get("PLACE",[]):
@@ -79,7 +83,7 @@ class NLU(object):
                 if found:
                     intent = "FIND_OFFICE_LOC"
         
-        entities = self.extract_entities(doc)
+        
         
         to_del = []
         for entity in entities.get("PERSON", []):
@@ -99,4 +103,4 @@ if __name__ == "__main__":
 
     nlu = NLU()
 
-    print(nlu.interpret("Where is Donna Graves's Office?"))
+    print(nlu.interpret("Donna"))
